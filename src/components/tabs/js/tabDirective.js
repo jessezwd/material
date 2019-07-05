@@ -6,45 +6,53 @@
  * @restrict E
  *
  * @description
- * Use the `<md-tab>` a nested directive used within `<md-tabs>` to specify a tab with a **label** and optional *view content*.
+ * The `<md-tab>` is a nested directive used within `<md-tabs>` to specify a tab with a **label**
+ * and optional *view content*.
  *
- * If the `label` attribute is not specified, then an optional `<md-tab-label>` tag can be used to specify more
- * complex tab header markup. If neither the **label** nor the **md-tab-label** are specified, then the nested
- * markup of the `<md-tab>` is used as the tab header markup.
+ * If the `label` attribute is not specified, then an optional `<md-tab-label>` tag can be used to
+ * specify more complex tab header markup. If neither the **label** nor the **md-tab-label** are
+ * specified, then the nested markup of the `<md-tab>` is used as the tab header markup.
  *
- * Please note that if you use `<md-tab-label>`, your content **MUST** be wrapped in the `<md-tab-body>` tag.  This
- * is to define a clear separation between the tab content and the tab label.
+ * Please note that if you use `<md-tab-label>`, your content **MUST** be wrapped in the
+ * `<md-tab-body>` tag.  This is to define a clear separation between the tab content and the tab
+ * label.
  *
- * If a tab **label** has been identified, then any **non-**`<md-tab-label>` markup
- * will be considered tab content and will be transcluded to the internal `<div class="md-tabs-content">` container.
- *
- * This container is used by the TabsController to show/hide the active tab's content view. This synchronization is
- * automatically managed by the internal TabsController whenever the tab selection changes. Selection changes can
- * be initiated via data binding changes, programmatic invocation, or user gestures.
+ * This container is used by the TabsController to show/hide the active tab's content view. This
+ * synchronization is automatically managed by the internal TabsController whenever the tab
+ * selection changes. Selection changes can be initiated via data binding changes, programmatic
+ * invocation, or user gestures.
  *
  * @param {string=} label Optional attribute to specify a simple string as the tab label
- * @param {boolean=} disabled If present, disabled tab selection.
- * @param {expression=} md-on-deselect Expression to be evaluated after the tab has been de-selected.
+ * @param {boolean=} ng-disabled If present and expression evaluates to truthy, disabled tab
+ *  selection.
+ * @param {string=} md-tab-class Optional attribute to specify a class that will be applied to the
+ *  tab's button
+ * @param {expression=} md-on-deselect Expression to be evaluated after the tab has been
+ *  de-selected.
  * @param {expression=} md-on-select Expression to be evaluated after the tab has been selected.
+ * @param {boolean=} md-active When true, sets the active tab.  Note: There can only be one active
+ *  tab at a time.
  *
  *
  * @usage
  *
  * <hljs lang="html">
- * <md-tab label="" disabled="" md-on-select="" md-on-deselect="" >
+ * <md-tab label="My Tab" md-tab-class="my-content-tab" ng-disabled md-on-select="onSelect()"
+ *         md-on-deselect="onDeselect()">
  *   <h3>My Tab content</h3>
  * </md-tab>
  *
- * <md-tab >
+ * <md-tab>
  *   <md-tab-label>
- *     <h3>My Tab content</h3>
+ *     <h3>My Tab</h3>
  *   </md-tab-label>
  *   <md-tab-body>
  *     <p>
- *       Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium,
- *       totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae
- *       dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit,
- *       sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.
+ *       Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque
+ *       laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi
+ *       architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit
+ *       aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione
+ *       voluptatem sequi nesciunt.
  *     </p>
  *   </md-tab-body>
  * </md-tab>
@@ -60,19 +68,19 @@ function MdTab () {
     require:  '^?mdTabs',
     terminal: true,
     compile:  function (element, attr) {
-      var label = element.find('md-tab-label'),
-          body  = element.find('md-tab-body');
+      var label = firstChild(element, 'md-tab-label'),
+          body  = firstChild(element, 'md-tab-body');
 
-      if (label.length == 0) {
+      if (label.length === 0) {
         label = angular.element('<md-tab-label></md-tab-label>');
         if (attr.label) label.text(attr.label);
         else label.append(element.contents());
-      }
 
-      if (body.length == 0) {
-        var contents = element.contents().detach();
-        body         = angular.element('<md-tab-body></md-tab-body>');
-        body.append(contents);
+        if (body.length === 0) {
+          var contents = element.contents().detach();
+          body         = angular.element('<md-tab-body></md-tab-body>');
+          body.append(contents);
+        }
       }
 
       element.append(label);
@@ -84,15 +92,16 @@ function MdTab () {
       active:   '=?mdActive',
       disabled: '=?ngDisabled',
       select:   '&?mdOnSelect',
-      deselect: '&?mdOnDeselect'
+      deselect: '&?mdOnDeselect',
+      tabClass: '@mdTabClass'
     }
   };
 
   function postLink (scope, element, attr, ctrl) {
     if (!ctrl) return;
     var index = ctrl.getTabElementIndex(element),
-        body  = element.find('md-tab-body').eq(0).remove(),
-        label = element.find('md-tab-label').eq(0).remove(),
+        body  = firstChild(element, 'md-tab-body').remove(),
+        label = firstChild(element, 'md-tab-label').remove(),
         data  = ctrl.insertTab({
           scope:    scope,
           parent:   scope.$parent,
@@ -105,7 +114,7 @@ function MdTab () {
     scope.select   = scope.select || angular.noop;
     scope.deselect = scope.deselect || angular.noop;
 
-    scope.$watch('active', function (active) { if (active) ctrl.select(data.getIndex()); });
+    scope.$watch('active', function (active) { if (active) ctrl.select(data.getIndex(), true); });
     scope.$watch('disabled', function () { ctrl.refreshIndex(); });
     scope.$watch(
         function () {
@@ -117,6 +126,14 @@ function MdTab () {
         }
     );
     scope.$on('$destroy', function () { ctrl.removeTab(data); });
+  }
 
+  function firstChild (element, tagName) {
+    var children = element[0].children;
+    for (var i = 0, len = children.length; i < len; i++) {
+      var child = children[i];
+      if (child.tagName === tagName.toUpperCase()) return angular.element(child);
+    }
+    return angular.element();
   }
 }

@@ -1,27 +1,24 @@
-var gulp = require('gulp');
-var Dgeni = require('dgeni');
-var _ = require('lodash');
-var concat = require('gulp-concat');
-var fs = require('fs');
-var gulpif = require('gulp-if');
-var lazypipe = require('lazypipe');
-var mkdirp = require('mkdirp');
-var ngHtml2js = require('gulp-ng-html2js');
-var path = require('path');
-var sass = require('gulp-sass');
-var through2 = require('through2');
-var uglify = require('gulp-uglify');
-var utils = require('../scripts/gulp-utils.js');
-var karma = require('karma').server;
-var argv = require('minimist')(process.argv.slice(2));
-var gutil = require('gulp-util');
-
-var config = {
-  demoFolder: 'demo-partials'
-};
+const gulp = require('gulp');
+const Dgeni = require('dgeni');
+const _ = require('lodash');
+const concat = require('gulp-concat');
+const fs = require('fs');
+const gulpif = require('gulp-if');
+const lazypipe = require('lazypipe');
+const mkdirp = require('mkdirp');
+const ngHtml2js = require('gulp-ng-html2js');
+const path = require('path');
+const sass = require('gulp-sass');
+const through2 = require('through2');
+const uglify = require('gulp-uglify');
+const utils = require('../scripts/gulp-utils.js');
+const karma = require('karma').server;
+const argv = require('minimist')(process.argv.slice(2));
+const gutil = require('gulp-util');
+const series = require('stream-series');
 
 gulp.task('demos', function() {
-  var demos = [];
+  const demos = [];
   return generateDemos()
     .pipe(through2.obj(function(demo, enc, next) {
       // Don't include file contents into the docs app,
@@ -33,20 +30,22 @@ gulp.task('demos', function() {
       demos.push(demo);
       next();
     }, function(done) {
-      var demoIndex = _(demos)
+      const demoIndex = _(demos)
         .groupBy('moduleName')
         .map(function(moduleDemos, moduleName) {
+          const componentName = moduleName.split('.').pop();
           return {
-            name: moduleName,
-            label: utils.humanizeCamelCase(moduleName.split('.').pop()),
+            name: componentName,
+            moduleName: moduleName,
+            label: utils.humanizeCamelCase(componentName),
             demos: moduleDemos,
-            url: '/demo/' + moduleName
+            url: 'demo/' + componentName
           };
         })
         .value();
 
-      var dest = path.resolve(__dirname, '../dist/docs/js');
-      var file = "angular.module('docsApp').constant('DEMOS', " +
+      const dest = path.resolve(__dirname, '../dist/docs/js');
+      const file = "angular.module('docsApp').constant('DEMOS', " +
         JSON.stringify(demoIndex, null, 2) + ");";
       mkdirp.sync(dest);
       fs.writeFileSync(dest + '/demo-data.js', file);
@@ -58,16 +57,16 @@ gulp.task('demos', function() {
 function generateDemos() {
   return gulp.src('src/{components,services}/*/')
     .pipe(through2.obj(function(folder, enc, next) {
-      var self = this;
-      var split = folder.path.split(path.sep);
-      var name = split.pop();
-      var moduleName = 'material.' + split.pop() + '.' + name;
+      const self = this;
+      const split = folder.path.split(path.sep);
+      const name = split.pop();
+      const moduleName = 'material.' + split.pop() + '.' + name;
 
       utils.copyDemoAssets(name, 'src/components/', 'dist/docs/demo-partials/');
 
       utils.readModuleDemos(moduleName, function(demoId) {
         return lazypipe()
-          .pipe(gulpif, /.css$/, transformCss(demoId))
+          .pipe(gulpif, /^(?!.+global\.).*css/, transformCss(demoId))
           .pipe(gulp.dest, 'dist/docs/demo-partials/' + name)
         ();
       })
@@ -79,7 +78,7 @@ function generateDemos() {
       function transformCss(demoId) {
         return lazypipe()
           .pipe(through2.obj, function(file, enc, next) {
-            file.contents = new Buffer(
+            file.contents = Buffer.from(
               '.' + demoId + ' {\n' + file.contents.toString() + '\n}'
             );
             next(null, file);
@@ -91,7 +90,7 @@ function generateDemos() {
 }
 
 gulp.task('docs-generate', ['build'], function() {
-  var dgeni = new Dgeni([
+  const dgeni = new Dgeni([
     require('./config')
   ]);
   return dgeni.generate();
@@ -109,17 +108,28 @@ gulp.task('docs-demo-scripts', ['demos'], function() {
 });
 
 gulp.task('docs-js-dependencies', ['build'], function() {
-  return gulp.src(['dist/angular-material.js', 'dist/angular-material.min.js'])
+  return gulp.src(['dist/angular-material.js', 'dist/angular-material.min.js', 'docs/app/contributors.json'])
     .pipe(gulp.dest('dist/docs'));
 });
 
 gulp.task('docs-js', ['docs-app', 'docs-html2js', 'demos', 'build', 'docs-js-dependencies'], function() {
-  return gulp.src([
-    'node_modules/angularytics/dist/angularytics.js',
-    'dist/docs/js/**/*.js'
-  ])
-  .pipe(concat('docs.js'))
-  .pipe(gulpif(!argv.dev, uglify()))
+  const preLoadJs = ['docs/app/js/preload.js'];
+  if (process.argv.indexOf('--jquery') !== -1) {
+    preLoadJs.push('node_modules/jquery/dist/jquery.js');
+  }
+
+  return series(
+    gulp.src([
+      'node_modules/angularytics/dist/angularytics.js',
+      'dist/docs/js/app.js', // Load the AngularJS module initialization at first.
+      'dist/docs/js/**/*.js'
+    ])
+      .pipe(concat('docs.js'))
+      .pipe(gulpif(!argv.dev, uglify())),
+    gulp.src(preLoadJs)
+      .pipe(concat('preload.js'))
+      .pipe(gulpif(!argv.dev, uglify()))
+  )
   .pipe(gulp.dest('dist/docs'));
 });
 
@@ -139,6 +149,7 @@ gulp.task('docs-css', ['docs-app', 'build', 'docs-css-dependencies'], function()
     'docs/app/css/style.css'
   ])
   .pipe(concat('docs.css'))
+  .pipe(utils.autoprefix())
   .pipe(gulp.dest('dist/docs'));
 });
 
@@ -153,16 +164,17 @@ gulp.task('docs-html2js', function() {
 });
 
 gulp.task('docs-karma', ['docs-js'], function(done) {
-  var karmaConfig = {
+  const karmaConfig = {
     singleRun: true,
     autoWatch: false,
     browsers: argv.browsers ? argv.browsers.trim().split(',') : ['Chrome'],
-    configFile: __dirname + '/../config/karma-docs.conf.js'
+    configFile: path.join(__dirname, '/../config/karma-docs.conf.js')
   };
 
   karma.start(karmaConfig, function(exitCode) {
-    if (exitCode != 0) {
+    if (exitCode !== 0) {
       gutil.log(gutil.colors.red("Karma exited with the following exit code: " + exitCode));
+      // eslint-disable-next-line no-process-exit
       process.exit(exitCode);
     }
     done();

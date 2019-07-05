@@ -4,13 +4,13 @@
 
 ## Configuring a theme
 
-By default your Angular Material application will use the default theme, a theme
+By default your AngularJS Material application will use the default theme, a theme
 that is pre-configured with the following palettes for intention groups:
 
 - *primary* - indigo
 - *accent* - pink
 - *warn* - red
-- *background* - grey (note that white is in this palette)
+- *background* - grey
 
 Configuring of the default theme is done by using the `$mdThemingProvider`
 during application configuration.
@@ -72,7 +72,7 @@ angular.module('myApp', ['ngMaterial'])
 
 ### Defining Custom Palettes
 
-As mentioned before, Angular Material ships with the Material Design
+As mentioned before, AngularJS Material ships with the Material Design
 Spec's color palettes built in. In the event that you need to define a custom color palette, you can use `$mdThemingProvider` to define it, thereby making 
 it available to your theme for use in its intention groups. Note that you must
 specify all hues in the definition map.
@@ -110,17 +110,21 @@ angular.module('myApp', ['ngMaterial'])
 });
 </hljs>
 
-Sometimes it is easier to extend an existing color palette to overwrite a few
-colors than define a whole new one. You can use `$mdThemingProvider.extendPalette` 
+### Extending Existing Palettes
+
+Sometimes it is easier to extend an existing color palette to change a few properties
+than to define a whole new palette. You can use `$mdThemingProvider.extendPalette` 
 to quickly extend an existing color palette.
 
 <hljs lang="js">
 angular.module('myApp', ['ngMaterial'])
 .config(function($mdThemingProvider) {
 
-  // Extend the red theme with a few different colors
+  // Extend the red theme with a different color and make the contrast color black instead of white.
+  // For example: raised button text will be black instead of white.
   var neonRedMap = $mdThemingProvider.extendPalette('red', {
-    '500': 'ff0000'
+    '500': '#ff0000',
+    'contrastDefaultColor': 'dark'
   });
 
   // Register the new color palette map with the name `neonRed`
@@ -128,7 +132,19 @@ angular.module('myApp', ['ngMaterial'])
 
   // Use that theme for the primary intentions
   $mdThemingProvider.theme('default')
-    .primaryPalette('neonRed')
+    .primaryPalette('neonRed');
 
 });
 </hljs>
+
+### Disable Theming
+
+You can disable theming by calling `disableTheming()`.
+
+<hljs lang="js">
+angular.module('myApp', ['ngMaterial'])
+.config(function($mdThemingProvider) {
+  $mdThemingProvider.disableTheming();
+});
+</hljs>
+

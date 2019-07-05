@@ -16,6 +16,12 @@
     self.selectedItemChange = selectedItemChange;
     self.searchTextChange   = searchTextChange;
 
+    self.newState = newState;
+
+    function newState(state) {
+      alert("Sorry! You'll need to create a Constitution for " + state + " first!");
+    }
+
     // ******************************
     // Internal methods
     // ******************************
@@ -25,11 +31,11 @@
      * remote dataservice call.
      */
     function querySearch (query) {
-      var results = query ? self.states.filter( createFilterFor(query) ) : self.states,
+      var results = query ? self.states.filter(createFilterFor(query)) : self.states,
           deferred;
       if (self.simulateQuery) {
         deferred = $q.defer();
-        $timeout(function () { deferred.resolve( results ); }, Math.random() * 1000, false);
+        $timeout(function () { deferred.resolve(results); }, Math.random() * 1000, false);
         return deferred.promise;
       } else {
         return results;
@@ -56,7 +62,7 @@
               South Dakota, Tennessee, Texas, Utah, Vermont, Virginia, Washington, West Virginia,\
               Wisconsin, Wyoming';
 
-      return allStates.split(/, +/g).map( function (state) {
+      return allStates.split(/, +/g).map(function (state) {
         return {
           value: state.toLowerCase(),
           display: state
@@ -68,7 +74,7 @@
      * Create filter function for a query string
      */
     function createFilterFor(query) {
-      var lowercaseQuery = angular.lowercase(query);
+      var lowercaseQuery = query.toLowerCase();
 
       return function filterFn(state) {
         return (state.value.indexOf(lowercaseQuery) === 0);
